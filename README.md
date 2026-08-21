@@ -64,7 +64,7 @@ screenshots once you've run it):
 
 ```bash
 git clone <this-repo-url>
-cd money_tracker
+cd Cashmori
 flutter pub get
 flutter run
 ```
