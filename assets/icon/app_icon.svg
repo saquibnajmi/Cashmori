@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Background: rounded square, matches app's navy theme -->
+  <rect x="0" y="0" width="1024" height="1024" rx="220" fill="#1E2A38"/>
+
+  <!-- Cat ears (drawn first so the coin overlaps their base, leaving only tips visible) -->
+  <polygon points="392,118 322,352 472,300" fill="#E0B84D"/>
+  <polygon points="632,118 702,352 552,300" fill="#E0B84D"/>
+  <polygon points="392,118 355,300 445,290" fill="#C79A3C"/>
+  <polygon points="632,118 669,300 579,290" fill="#C79A3C"/>
+
+  <!-- Coin -->
+  <circle cx="512" cy="548" r="252" fill="#E0B84D" stroke="#16202B" stroke-width="16"/>
+  <circle cx="512" cy="548" r="216" fill="none" stroke="#C79A3C" stroke-width="6"/>
+
+  <!-- Eyes -->
+  <circle cx="428" cy="520" r="27" fill="#1E2A38"/>
+  <circle cx="596" cy="520" r="27" fill="#1E2A38"/>
+  <circle cx="437" cy="511" r="8" fill="#F2F0EC"/>
+  <circle cx="605" cy="511" r="8" fill="#F2F0EC"/>
+
+  <!-- Nose -->
+  <polygon points="497,562 527,562 512,584" fill="#1E2A38"/>
+
+  <!-- Mouth -->
+  <path d="M512,584 Q488,604 460,590" fill="none" stroke="#1E2A38" stroke-width="11" stroke-linecap="round"/>
+  <path d="M512,584 Q536,604 564,590" fill="none" stroke="#1E2A38" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- Whiskers -->
+  <line x1="322" y1="538" x2="424" y2="530" stroke="#1E2A38" stroke-width="9" stroke-linecap="round"/>
+  <line x1="316" y1="562" x2="424" y2="562" stroke="#1E2A38" stroke-width="9" stroke-linecap="round"/>
+  <line x1="322" y1="586" x2="424" y2="594" stroke="#1E2A38" stroke-width="9" stroke-linecap="round"/>
+  <line x1="600" y1="530" x2="702" y2="538" stroke="#1E2A38" stroke-width="9" stroke-linecap="round"/>
+  <line x1="600" y1="562" x2="708" y2="562" stroke="#1E2A38" stroke-width="9" stroke-linecap="round"/>
+  <line x1="600" y1="594" x2="702" y2="586" stroke="#1E2A38" stroke-width="9" stroke-linecap="round"/>
+</svg>

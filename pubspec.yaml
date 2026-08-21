@@ -1,0 +1,50 @@
+name: cashmori
+description: Cashmori — a personal expense / money tracker mini project (offline, SQLite based).
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # Local database
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  path_provider: ^2.1.1
+
+  # Backup / restore (zip the db file, let user pick where to save/open it)
+  archive: ^3.4.9
+  file_picker: ^12.0.0
+  share_plus: ^13.3.0
+
+  # Charts
+  fl_chart: ^0.66.0
+
+  # Formatting (currency / dates)
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/
+
+# Run `dart run flutter_launcher_icons` after `flutter pub get` to generate
+# every platform's launcher icon (all Android mipmap sizes, iOS AppIcon set,
+# and the Android 13+ adaptive icon) from the single source PNG below.
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#1E2A38"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
