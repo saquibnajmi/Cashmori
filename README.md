@@ -69,8 +69,6 @@ flutter pub get
 flutter run
 ```
 
-No API keys, no `.env` file, no backend to stand up — it runs the moment `flutter pub get` finishes.
-
 ### App icon
 
 The launcher icon (`assets/icon/app_icon.png` + `app_icon_foreground.png`) is wired up via
@@ -114,15 +112,12 @@ Independent tables keep restore simple: there's no relational integrity to recon
 
 ## Backup & restore
 
-**Export:** Settings → *Backup Now* closes the live DB connection, zips `money_tracker.db` into
-`money_tracker_backup.zip`, and opens the OS share sheet — save it to Drive, local storage, email,
+**Export:** Settings → *Backup Now* closes the live DB connection, zips `money_tracker.db` and `custom_subcategories.json` into
+`cashmori_backup_datetime.zip`, and opens the OS share sheet — save it to Drive, local storage, email,
 wherever.
 
 **Restore:** Settings → *Restore from file* opens the file picker, extracts `money_tracker.db` from the
 selected `.zip`, and overwrites the live database (after a confirmation dialog, since it's destructive).
-
-Zipping the raw `.db` file (instead of exporting JSON) means one file *is* every table, byte-for-byte —
-restore is "replace file, reopen," not "re-parse and re-insert thousands of rows."
 
 ## Known limitations
 
@@ -139,15 +134,6 @@ restore is "replace file, reopen," not "re-parse and re-insert thousands of rows
 - [ ] Budget limits per category with progress bars
 - [ ] Scheduled local reminders to back up weekly
 - [ ] Optional multi-currency support
-
-## Regenerating screenshots
-
-```bash
-flutter pub get
-flutter run
-# capture screenshots on the emulator/device and drop them into /screenshots,
-# replacing the mockup images referenced above
-```
 
 ## License
 
