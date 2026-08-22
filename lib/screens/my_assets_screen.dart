@@ -13,14 +13,29 @@ class MyAssetsScreen extends StatefulWidget {
 
 class _MyAssetsScreenState extends State<MyAssetsScreen> {
   late Future<List<AssetModel>> _future;
+  late final ValueNotifier<int> _refreshToken;
 
   @override
   void initState() {
     super.initState();
+    _refreshToken = DatabaseHelper.instance.refreshNotifier;
+    _refreshToken.addListener(_onDatabaseChanged);
     _future = DatabaseHelper.instance.getAllAssets();
   }
 
-  void _refresh() => setState(() => _future = DatabaseHelper.instance.getAllAssets());
+  @override
+  void dispose() {
+    _refreshToken.removeListener(_onDatabaseChanged);
+    super.dispose();
+  }
+
+  void _onDatabaseChanged() {
+    if (!mounted) return;
+    setState(() => _future = DatabaseHelper.instance.getAllAssets());
+  }
+
+  void _refresh() =>
+      setState(() => _future = DatabaseHelper.instance.getAllAssets());
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +44,8 @@ class _MyAssetsScreenState extends State<MyAssetsScreen> {
       body: FutureBuilder<List<AssetModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
           final assets = snapshot.data!;
 
           if (assets.isEmpty) {
@@ -51,10 +67,12 @@ class _MyAssetsScreenState extends State<MyAssetsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('TOTAL ASSET VALUE',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 6),
                     Text(NumberFormat('#,##,##0.00', 'en_IN').format(total),
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -85,6 +103,29 @@ class _AssetTile extends StatelessWidget {
   final VoidCallback onDeleted;
   const _AssetTile({required this.asset, required this.onDeleted});
 
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete asset?'),
+        content: Text('Delete "${asset.name}"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirm == true && asset.id != null) {
+      await DatabaseHelper.instance.deleteAsset(asset.id!);
+      onDeleted();
+    }
+  }
+
   IconData get _icon {
     switch (asset.assetType) {
       case 'Property':
@@ -104,12 +145,7 @@ class _AssetTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onLongPress: () async {
-          if (asset.id != null) {
-            await DatabaseHelper.instance.deleteAsset(asset.id!);
-            onDeleted();
-          }
-        },
+        onLongPress: () => _confirmDelete(context),
         child: Container(
           decoration: AppTheme.cardDecoration,
           padding: const EdgeInsets.all(16),
@@ -122,15 +158,18 @@ class _AssetTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(asset.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
                     Text(asset.assetType,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
               Text(NumberFormat('#,##,##0', 'en_IN').format(asset.value),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
         ),
@@ -155,8 +194,8 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
   Future<void> _save() async {
     final value = double.tryParse(_valueCtrl.text.trim());
     if (_nameCtrl.text.trim().isEmpty || value == null || value <= 0) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Enter a name and valid value')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a name and valid value')));
       return;
     }
     await DatabaseHelper.instance.insertAsset(AssetModel(
@@ -171,7 +210,8 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: const BoxDecoration(
           color: AppColors.card,
@@ -183,12 +223,14 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Center(
-              child: Text('ADD ASSET', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              child: Text('ADD ASSET',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ),
             const SizedBox(height: 18),
             TextField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Asset name (e.g. Flat, Car)')),
+                decoration: const InputDecoration(
+                    labelText: 'Asset name (e.g. Flat, Car)')),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               value: _assetType,
@@ -201,7 +243,8 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
             const SizedBox(height: 14),
             TextField(
               controller: _valueCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'Current value'),
             ),
             const SizedBox(height: 24),

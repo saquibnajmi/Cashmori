@@ -13,14 +13,29 @@ class MySharesScreen extends StatefulWidget {
 
 class _MySharesScreenState extends State<MySharesScreen> {
   late Future<List<ShareModel>> _future;
+  late final ValueNotifier<int> _refreshToken;
 
   @override
   void initState() {
     super.initState();
+    _refreshToken = DatabaseHelper.instance.refreshNotifier;
+    _refreshToken.addListener(_onDatabaseChanged);
     _future = DatabaseHelper.instance.getAllShares();
   }
 
-  void _refresh() => setState(() => _future = DatabaseHelper.instance.getAllShares());
+  @override
+  void dispose() {
+    _refreshToken.removeListener(_onDatabaseChanged);
+    super.dispose();
+  }
+
+  void _onDatabaseChanged() {
+    if (!mounted) return;
+    setState(() => _future = DatabaseHelper.instance.getAllShares());
+  }
+
+  void _refresh() =>
+      setState(() => _future = DatabaseHelper.instance.getAllShares());
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +44,8 @@ class _MySharesScreenState extends State<MySharesScreen> {
       body: FutureBuilder<List<ShareModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
           final shares = snapshot.data!;
 
           if (shares.isEmpty) {
@@ -39,8 +55,10 @@ class _MySharesScreenState extends State<MySharesScreen> {
             );
           }
 
-          final totalInvested = shares.fold<double>(0, (s, x) => s + x.investedValue);
-          final totalCurrent = shares.fold<double>(0, (s, x) => s + x.currentValue);
+          final totalInvested =
+              shares.fold<double>(0, (s, x) => s + x.investedValue);
+          final totalCurrent =
+              shares.fold<double>(0, (s, x) => s + x.currentValue);
           final totalGain = totalCurrent - totalInvested;
 
           return ListView(
@@ -53,15 +71,21 @@ class _MySharesScreenState extends State<MySharesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('PORTFOLIO VALUE',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 6),
-                    Text(NumberFormat('#,##,##0.00', 'en_IN').format(totalCurrent),
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text(
+                        NumberFormat('#,##,##0.00', 'en_IN')
+                            .format(totalCurrent),
+                        style: const TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Text(
                       '${totalGain >= 0 ? '+' : ''}${NumberFormat('#,##,##0.00', 'en_IN').format(totalGain)} overall',
                       style: TextStyle(
-                        color: totalGain >= 0 ? AppColors.income : AppColors.expense,
+                        color: totalGain >= 0
+                            ? AppColors.income
+                            : AppColors.expense,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -96,19 +120,38 @@ class _ShareTile extends StatelessWidget {
   final VoidCallback onDeleted;
   const _ShareTile({required this.share, required this.onDeleted});
 
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete share?'),
+        content: Text('Delete "${share.companyName}"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirm == true && share.id != null) {
+      await DatabaseHelper.instance.deleteShare(share.id!);
+      onDeleted();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final gainColor = share.gainLoss >= 0 ? AppColors.income : AppColors.expense;
+    final gainColor =
+        share.gainLoss >= 0 ? AppColors.income : AppColors.expense;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onLongPress: () async {
-          if (share.id != null) {
-            await DatabaseHelper.instance.deleteShare(share.id!);
-            onDeleted();
-          }
-        },
+        onLongPress: () => _confirmDelete(context),
         child: Container(
           decoration: AppTheme.cardDecoration,
           padding: const EdgeInsets.all(16),
@@ -119,21 +162,30 @@ class _ShareTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(share.companyName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Text('${share.quantity.toStringAsFixed(0)} qty @ ${share.buyPrice.toStringAsFixed(2)}',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    Text(
+                        '${share.quantity.toStringAsFixed(0)} qty @ ${share.buyPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(NumberFormat('#,##,##0.00', 'en_IN').format(share.currentValue),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(
+                      NumberFormat('#,##,##0.00', 'en_IN')
+                          .format(share.currentValue),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                   Text(
                     '${share.gainLoss >= 0 ? '+' : ''}${share.gainLossPercent.toStringAsFixed(1)}%',
-                    style: TextStyle(color: gainColor, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                        color: gainColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
                   ),
                 ],
               ),
@@ -163,9 +215,12 @@ class _AddShareSheetState extends State<_AddShareSheet> {
     final qty = double.tryParse(_qtyCtrl.text.trim());
     final buy = double.tryParse(_buyCtrl.text.trim());
     final current = double.tryParse(_currentCtrl.text.trim());
-    if (_nameCtrl.text.trim().isEmpty || qty == null || buy == null || current == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Fill all fields correctly')));
+    if (_nameCtrl.text.trim().isEmpty ||
+        qty == null ||
+        buy == null ||
+        current == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fill all fields correctly')));
       return;
     }
     await DatabaseHelper.instance.insertShare(ShareModel(
@@ -181,7 +236,8 @@ class _AddShareSheetState extends State<_AddShareSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: const BoxDecoration(
           color: AppColors.card,
@@ -193,7 +249,8 @@ class _AddShareSheetState extends State<_AddShareSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Center(
-              child: Text('ADD SHARE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              child: Text('ADD SHARE',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ),
             const SizedBox(height: 18),
             TextField(
@@ -202,20 +259,25 @@ class _AddShareSheetState extends State<_AddShareSheet> {
             const SizedBox(height: 14),
             TextField(
               controller: _qtyCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'Quantity'),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _buyCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Buy price (per share)'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration:
+                  const InputDecoration(labelText: 'Buy price (per share)'),
             ),
             const SizedBox(height: 14),
             TextField(
               controller: _currentCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Current price (per share)'),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration:
+                  const InputDecoration(labelText: 'Current price (per share)'),
             ),
             const SizedBox(height: 24),
             ElevatedButton(onPressed: _save, child: const Text('SAVE')),

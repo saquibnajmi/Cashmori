@@ -15,6 +15,7 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.8.3
   path_provider: ^2.1.1
+  shared_preferences: ^2.2.3
 
   # Backup / restore (zip the db file, let user pick where to save/open it)
   archive: ^3.4.9

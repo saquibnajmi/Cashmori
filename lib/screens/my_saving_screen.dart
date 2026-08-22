@@ -16,18 +16,34 @@ class MySavingScreen extends StatefulWidget {
 
 class _MySavingScreenState extends State<MySavingScreen> {
   late Future<_SavingData> _dataFuture;
+  late final ValueNotifier<int> _refreshToken;
 
   @override
   void initState() {
     super.initState();
+    _refreshToken = DatabaseHelper.instance.refreshNotifier;
+    _refreshToken.addListener(_onDatabaseChanged);
     _dataFuture = _load();
+  }
+
+  @override
+  void dispose() {
+    _refreshToken.removeListener(_onDatabaseChanged);
+    super.dispose();
+  }
+
+  void _onDatabaseChanged() {
+    if (!mounted) return;
+    _refresh();
   }
 
   Future<_SavingData> _load() async {
     final total = await DatabaseHelper.instance.getTotalSaving();
-    final monthly = await DatabaseHelper.instance.getMonthlyTotals(DateTime.now().year);
+    final monthly =
+        await DatabaseHelper.instance.getMonthlyTotals(DateTime.now().year);
     final transactions = await DatabaseHelper.instance.getAllTransactions();
-    return _SavingData(total: total, monthly: monthly, transactions: transactions);
+    return _SavingData(
+        total: total, monthly: monthly, transactions: transactions);
   }
 
   void _refresh() => setState(() => _dataFuture = _load());
@@ -60,11 +76,14 @@ class _MySavingScreenState extends State<MySavingScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('MY SAVING',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                           Text(
-                            NumberFormat('#,##,##0.00', 'en_IN').format(data.total),
-                            style: const TextStyle(
-                                color: AppColors.income,
+                            MoneyFormatter.format(data.total),
+                            style: TextStyle(
+                                color: data.total >= 0
+                                    ? AppColors.income
+                                    : AppColors.expense,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20),
                           ),
@@ -94,7 +113,8 @@ class _MySavingScreenState extends State<MySavingScreen> {
                     TransactionTile(
                       transaction: t,
                       onTap: () async {
-                        final saved = await showAddEntrySheet(context, existing: t);
+                        final saved =
+                            await showAddEntrySheet(context, existing: t);
                         if (saved == true) _refresh();
                       },
                       onLongPress: () => _confirmDelete(t),
@@ -115,15 +135,28 @@ class _MySavingScreenState extends State<MySavingScreen> {
     );
   }
 
+  String _entryLabel(TransactionModel t) {
+    final cleaned = t.description.trim();
+    if (cleaned.isNotEmpty) return cleaned;
+    if (t.subCategory != null && t.subCategory!.trim().isNotEmpty) {
+      return t.subCategory!;
+    }
+    return t.category;
+  }
+
   Future<void> _confirmDelete(TransactionModel t) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete entry?'),
-        content: Text('Delete "${t.description}"?'),
+        content: Text('Delete "${_entryLabel(t)}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
         ],
       ),
     );
@@ -135,7 +168,8 @@ class _MySavingScreenState extends State<MySavingScreen> {
 
   /// Groups transactions by "Month Year" (e.g. "AUGUST 2026"), preserving
   /// most-recent-first order, exactly like the mockup's section headers.
-  Map<String, List<TransactionModel>> _groupByMonth(List<TransactionModel> list) {
+  Map<String, List<TransactionModel>> _groupByMonth(
+      List<TransactionModel> list) {
     final map = <String, List<TransactionModel>>{};
     for (final t in list) {
       final key = DateFormat('MMMM yyyy').format(t.date).toUpperCase();
@@ -149,7 +183,8 @@ class _SavingData {
   final double total;
   final Map<String, List<double>> monthly;
   final List<TransactionModel> transactions;
-  _SavingData({required this.total, required this.monthly, required this.transactions});
+  _SavingData(
+      {required this.total, required this.monthly, required this.transactions});
 }
 
 class _MonthDivider extends StatelessWidget {
@@ -166,7 +201,9 @@ class _MonthDivider extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
             child: Text(label,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textSecondary)),
           ),
           const Expanded(child: Divider(color: AppColors.divider)),
         ],

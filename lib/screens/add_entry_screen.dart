@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../models/transaction_model.dart';
+import '../services/custom_subcategory_service.dart';
 import '../theme/app_theme.dart';
 
 /// Shows the "Add New Entry" bottom sheet. Returns true via Navigator.pop
@@ -31,6 +32,8 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   late DateTime _date;
   String? _category;
   String? _subCategory;
+  List<String> _customSubcategories = const [];
+  bool _isLoadingSubcategories = false;
 
   @override
   void initState() {
@@ -42,10 +45,42 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     _date = e?.date ?? DateTime.now();
     _category = e?.category;
     _subCategory = e?.subCategory;
+    _refreshCustomSubcategories();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_category != null) {
+      _refreshCustomSubcategories();
+    }
   }
 
   Map<String, List<String>> get _categoryMap =>
       _type == 'expense' ? kExpenseCategories : kIncomeCategories;
+
+  Future<void> _refreshCustomSubcategories() async {
+    if (_category == null) {
+      setState(() => _customSubcategories = const []);
+      return;
+    }
+
+    setState(() => _isLoadingSubcategories = true);
+    final custom = await CustomSubcategoryService.load(_category!);
+    if (!mounted) return;
+    setState(() {
+      _customSubcategories = custom;
+      _isLoadingSubcategories = false;
+    });
+  }
+
+  List<String> get _combinedSubcategories {
+    final defaults = _category != null
+        ? (_categoryMap[_category] ?? <String>[])
+        : <String>[];
+    final items = [...defaults, ..._customSubcategories];
+    return items.toSet().toList();
+  }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -55,6 +90,16 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
       lastDate: DateTime(2100),
     );
     if (picked != null) setState(() => _date = picked);
+  }
+
+  void _onCategoryChanged(String? value) {
+    setState(() {
+      _category = value;
+      _subCategory = null;
+    });
+    if (value != null) {
+      _refreshCustomSubcategories();
+    }
   }
 
   Future<void> _save() async {
@@ -89,11 +134,128 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     if (mounted) Navigator.pop(context, true);
   }
 
+  Future<void> _addSubcategory() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Add sub-category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration:
+              const InputDecoration(hintText: 'e.g. Share Auto Rikshaw'),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.isEmpty) return;
+    if (_category == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a category first')),
+      );
+      return;
+    }
+
+    await CustomSubcategoryService.add(_category!, result);
+    await _refreshCustomSubcategories();
+    if (mounted) setState(() => _subCategory = result);
+  }
+
+  Future<void> _editSubcategory(String value) async {
+    final controller = TextEditingController(text: value);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Edit sub-category'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null || result.isEmpty || _category == null) return;
+    if (_categoryMap[_category] != null &&
+        _categoryMap[_category]!.contains(value)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Default sub-categories cannot be edited')),
+      );
+      return;
+    }
+
+    await CustomSubcategoryService.update(_category!, value, result);
+    await _refreshCustomSubcategories();
+    if (mounted) setState(() => _subCategory = result);
+  }
+
+  Future<void> _deleteCustomSubcategory(String value) async {
+    if (_category == null) return;
+    if (_categoryMap[_category] != null &&
+        _categoryMap[_category]!.contains(value)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Default sub-categories cannot be deleted')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete sub-category?'),
+        content: Text('Delete "$value"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    await CustomSubcategoryService.remove(_category!, value);
+    await _refreshCustomSubcategories();
+    if (_subCategory == value) {
+      if (mounted) setState(() => _subCategory = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories = _categoryMap.keys.toList();
-    final subCategories =
-        _category != null ? (_categoryMap[_category] ?? []) : <String>[];
+    final subCategories = _combinedSubcategories;
+
+    if (_category != null && !_isLoadingSubcategories) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_subCategory != null && !subCategories.contains(_subCategory)) {
+          setState(() => _subCategory = null);
+        }
+      });
+    }
 
     return Padding(
       padding:
@@ -167,27 +329,92 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                   items: categories
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
-                  onChanged: (v) => setState(() {
-                    _category = v;
-                    _subCategory = null;
-                  }),
+                  onChanged: _onCategoryChanged,
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 14),
-              _labeledField(
-                'SUB - CATEGORY',
-                DropdownButtonFormField<String>(
-                  initialValue: subCategories.contains(_subCategory)
-                      ? _subCategory
-                      : null,
-                  items: subCategories
-                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _subCategory = v),
-                  decoration: const InputDecoration(),
+              if (_category != null) ...[
+                const SizedBox(height: 14),
+                _labeledField(
+                  'SUB - CATEGORY',
+                  Column(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: subCategories.contains(_subCategory)
+                            ? _subCategory
+                            : null,
+                        items: subCategories.map((s) {
+                          final bool showActions =
+                              !_categoryMap[_category]!.contains(s) &&
+                                  s != _subCategory;
+
+                          return DropdownMenuItem(
+                            value: s,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(child: Text(s)),
+                                if (showActions)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        onPressed: () => _editSubcategory(s),
+                                        icon: const Icon(Icons.edit, size: 22),
+                                        padding: const EdgeInsets.all(8),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 36,
+                                          minHeight: 36,
+                                        ),
+                                        splashRadius: 18,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        onPressed: () =>
+                                            _deleteCustomSubcategory(s),
+                                        icon: const Icon(Icons.delete_outline,
+                                            size: 22),
+                                        padding: const EdgeInsets.all(8),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 36,
+                                          minHeight: 36,
+                                        ),
+                                        splashRadius: 18,
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setState(() => _subCategory = v),
+                        decoration: const InputDecoration(),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _addSubcategory,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.add, size: 18),
+                                SizedBox(width: 4),
+                                Text('Add sub-category'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 14),
               _labeledField(
                 'DESCRIPTION',
@@ -212,11 +439,12 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
                     height: 52,
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(52, 52),
+                        shape: const CircleBorder(),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: const Icon(Icons.close),
+                      child: const Icon(Icons.close, size: 22),
                     ),
                   ),
                 ],

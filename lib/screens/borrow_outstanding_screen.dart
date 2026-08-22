@@ -8,19 +8,35 @@ class BorrowOutstandingScreen extends StatefulWidget {
   const BorrowOutstandingScreen({super.key});
 
   @override
-  State<BorrowOutstandingScreen> createState() => _BorrowOutstandingScreenState();
+  State<BorrowOutstandingScreen> createState() =>
+      _BorrowOutstandingScreenState();
 }
 
 class _BorrowOutstandingScreenState extends State<BorrowOutstandingScreen> {
   late Future<List<BorrowModel>> _future;
+  late final ValueNotifier<int> _refreshToken;
 
   @override
   void initState() {
     super.initState();
+    _refreshToken = DatabaseHelper.instance.refreshNotifier;
+    _refreshToken.addListener(_onDatabaseChanged);
     _future = DatabaseHelper.instance.getAllBorrowRecords();
   }
 
-  void _refresh() => setState(() => _future = DatabaseHelper.instance.getAllBorrowRecords());
+  @override
+  void dispose() {
+    _refreshToken.removeListener(_onDatabaseChanged);
+    super.dispose();
+  }
+
+  void _onDatabaseChanged() {
+    if (!mounted) return;
+    setState(() => _future = DatabaseHelper.instance.getAllBorrowRecords());
+  }
+
+  void _refresh() =>
+      setState(() => _future = DatabaseHelper.instance.getAllBorrowRecords());
 
   @override
   Widget build(BuildContext context) {
@@ -29,11 +45,14 @@ class _BorrowOutstandingScreenState extends State<BorrowOutstandingScreen> {
       body: FutureBuilder<List<BorrowModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
           final records = snapshot.data!;
 
-          final lent = records.where((r) => r.type == 'lent' && r.status == 'outstanding');
-          final borrowed = records.where((r) => r.type == 'borrowed' && r.status == 'outstanding');
+          final lent = records
+              .where((r) => r.type == 'lent' && r.status == 'outstanding');
+          final borrowed = records
+              .where((r) => r.type == 'borrowed' && r.status == 'outstanding');
           final netOwedToYou = lent.fold<double>(0, (s, r) => s + r.amount) -
               borrowed.fold<double>(0, (s, r) => s + r.amount);
 
@@ -54,25 +73,32 @@ class _BorrowOutstandingScreenState extends State<BorrowOutstandingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text('NET BALANCE',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 6),
                     Text(
                       '${netOwedToYou >= 0 ? '+' : ''}${NumberFormat('#,##,##0.00', 'en_IN').format(netOwedToYou)}',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
-                        color: netOwedToYou >= 0 ? AppColors.income : AppColors.expense,
+                        color: netOwedToYou >= 0
+                            ? AppColors.income
+                            : AppColors.expense,
                       ),
                     ),
                     Text(
-                      netOwedToYou >= 0 ? 'Owed to you overall' : 'You owe overall',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      netOwedToYou >= 0
+                          ? 'Owed to you overall'
+                          : 'You owe overall',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              for (final r in records) _BorrowTile(record: r, onChanged: _refresh),
+              for (final r in records)
+                _BorrowTile(record: r, onChanged: _refresh),
             ],
           );
         },
@@ -116,15 +142,19 @@ class _BorrowTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(record.personName,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 4),
                   Text(
                     isLent ? 'You lent' : 'You borrowed',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12),
                   ),
                   if (record.dueDate != null)
-                    Text('Due: ${DateFormat('d MMM yyyy').format(record.dueDate!)}',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    Text(
+                        'Due: ${DateFormat('d MMM yyyy').format(record.dueDate!)}',
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12)),
                   if (settled)
                     const Padding(
                       padding: EdgeInsets.only(top: 4),
@@ -151,13 +181,15 @@ class _BorrowTile extends StatelessWidget {
                 ),
                 if (!settled)
                   TextButton(
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                    style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero, minimumSize: Size.zero),
                     onPressed: () async {
                       await DatabaseHelper.instance
                           .updateBorrow(record.copyWith(status: 'settled'));
                       onChanged();
                     },
-                    child: const Text('Mark settled', style: TextStyle(fontSize: 12)),
+                    child: const Text('Mark settled',
+                        style: TextStyle(fontSize: 12)),
                   ),
               ],
             ),
@@ -185,8 +217,8 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (_nameCtrl.text.trim().isEmpty || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Enter a name and valid amount')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a name and valid amount')));
       return;
     }
     await DatabaseHelper.instance.insertBorrow(BorrowModel(
@@ -202,7 +234,8 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         decoration: const BoxDecoration(
           color: AppColors.card,
@@ -223,24 +256,28 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
                 Expanded(
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      backgroundColor:
-                          _type == 'lent' ? AppColors.income.withOpacity(0.12) : null,
+                      backgroundColor: _type == 'lent'
+                          ? AppColors.income.withOpacity(0.12)
+                          : null,
                       side: BorderSide(color: AppColors.income),
                     ),
                     onPressed: () => setState(() => _type = 'lent'),
-                    child: const Text('I LENT', style: TextStyle(color: AppColors.income)),
+                    child: const Text('I LENT',
+                        style: TextStyle(color: AppColors.income)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      backgroundColor:
-                          _type == 'borrowed' ? AppColors.expense.withOpacity(0.12) : null,
+                      backgroundColor: _type == 'borrowed'
+                          ? AppColors.expense.withOpacity(0.12)
+                          : null,
                       side: BorderSide(color: AppColors.expense),
                     ),
                     onPressed: () => setState(() => _type = 'borrowed'),
-                    child: const Text('I BORROWED', style: TextStyle(color: AppColors.expense)),
+                    child: const Text('I BORROWED',
+                        style: TextStyle(color: AppColors.expense)),
                   ),
                 ),
               ],
@@ -253,7 +290,8 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
             const SizedBox(height: 14),
             TextField(
               controller: _amountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'Amount'),
             ),
             const SizedBox(height: 14),
@@ -268,8 +306,11 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
                 if (picked != null) setState(() => _dueDate = picked);
               },
               child: InputDecorator(
-                decoration: const InputDecoration(labelText: 'Due date (optional)'),
-                child: Text(_dueDate != null ? DateFormat('dd/MM/yyyy').format(_dueDate!) : '—'),
+                decoration:
+                    const InputDecoration(labelText: 'Due date (optional)'),
+                child: Text(_dueDate != null
+                    ? DateFormat('dd/MM/yyyy').format(_dueDate!)
+                    : '—'),
               ),
             ),
             const SizedBox(height: 24),

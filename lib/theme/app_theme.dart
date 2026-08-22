@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// Central place for all colors / text styles so every screen looks
 /// consistent and matches the original mockup:
@@ -14,6 +15,22 @@ class AppColors {
   static const textPrimary = Color(0xFF3A3A3A);
   static const textSecondary = Color(0xFF7A7A7A);
   static const divider = Color(0xFFDADADA);
+}
+
+class MoneyFormatter {
+  static final NumberFormat _full = NumberFormat('#,##,##0.00', 'en_IN');
+  static final NumberFormat _compact = NumberFormat('#,##,##0.##', 'en_IN');
+
+  static String format(double value,
+      {bool withDecimal = true, bool showSign = false}) {
+    final absolute = value.abs();
+    final formatted =
+        withDecimal ? _full.format(absolute) : _compact.format(absolute);
+
+    if (value == 0) return withDecimal ? '0.00' : '0';
+    if (!showSign) return formatted;
+    return value > 0 ? '+$formatted' : '-$formatted';
+  }
 }
 
 class AppTheme {
@@ -54,14 +71,16 @@ class AppTheme {
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

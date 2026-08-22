@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -15,6 +18,11 @@ class DatabaseHelper {
 
   static Database? _db;
   static const String dbName = 'money_tracker.db';
+  final ValueNotifier<int> refreshNotifier = ValueNotifier<int>(0);
+
+  void notifyDataChanged() {
+    refreshNotifier.value = refreshNotifier.value + 1;
+  }
 
   Future<Database> get database async {
     _db ??= await _initDb();
@@ -98,17 +106,25 @@ class DatabaseHelper {
 
   Future<int> insertTransaction(TransactionModel t) async {
     final db = await database;
-    return db.insert('transactions', t.toMap()..remove('id'));
+    final result = await db.insert('transactions', t.toMap()..remove('id'));
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> updateTransaction(TransactionModel t) async {
     final db = await database;
-    return db.update('transactions', t.toMap(), where: 'id = ?', whereArgs: [t.id]);
+    final result = await db
+        .update('transactions', t.toMap(), where: 'id = ?', whereArgs: [t.id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> deleteTransaction(int id) async {
     final db = await database;
-    return db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+    final result =
+        await db.delete('transactions', where: 'id = ?', whereArgs: [id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<List<TransactionModel>> getAllTransactions() async {
@@ -120,13 +136,24 @@ class DatabaseHelper {
   /// Total saving = total income - total expense, across all time.
   Future<double> getTotalSaving() async {
     final db = await database;
-    final income = Sqflite.firstIntValue(await db.rawQuery(
-            "SELECT IFNULL(SUM(amount),0) as s FROM transactions WHERE type = 'income'")) ??
-        0;
-    final expense = Sqflite.firstIntValue(await db.rawQuery(
-            "SELECT IFNULL(SUM(amount),0) as s FROM transactions WHERE type = 'expense'")) ??
-        0;
-    return (income - expense).toDouble();
+
+    final incomeRows = await db.rawQuery(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'income'",
+    );
+    final expenseRows = await db.rawQuery(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'expense'",
+    );
+
+    final income =
+        ((incomeRows.isNotEmpty ? incomeRows.first['total'] : 0) as num?)
+                ?.toDouble() ??
+            0.0;
+    final expense =
+        ((expenseRows.isNotEmpty ? expenseRows.first['total'] : 0) as num?)
+                ?.toDouble() ??
+            0.0;
+
+    return income - expense;
   }
 
   /// Returns 12 monthly totals (index 0 = Jan ... 11 = Dec) for the given
@@ -159,17 +186,25 @@ class DatabaseHelper {
 
   Future<int> insertBorrow(BorrowModel b) async {
     final db = await database;
-    return db.insert('borrow_records', b.toMap()..remove('id'));
+    final result = await db.insert('borrow_records', b.toMap()..remove('id'));
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> updateBorrow(BorrowModel b) async {
     final db = await database;
-    return db.update('borrow_records', b.toMap(), where: 'id = ?', whereArgs: [b.id]);
+    final result = await db.update('borrow_records', b.toMap(),
+        where: 'id = ?', whereArgs: [b.id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> deleteBorrow(int id) async {
     final db = await database;
-    return db.delete('borrow_records', where: 'id = ?', whereArgs: [id]);
+    final result =
+        await db.delete('borrow_records', where: 'id = ?', whereArgs: [id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<List<BorrowModel>> getAllBorrowRecords() async {
@@ -182,17 +217,24 @@ class DatabaseHelper {
 
   Future<int> insertShare(ShareModel s) async {
     final db = await database;
-    return db.insert('shares', s.toMap()..remove('id'));
+    final result = await db.insert('shares', s.toMap()..remove('id'));
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> updateShare(ShareModel s) async {
     final db = await database;
-    return db.update('shares', s.toMap(), where: 'id = ?', whereArgs: [s.id]);
+    final result = await db
+        .update('shares', s.toMap(), where: 'id = ?', whereArgs: [s.id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> deleteShare(int id) async {
     final db = await database;
-    return db.delete('shares', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('shares', where: 'id = ?', whereArgs: [id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<List<ShareModel>> getAllShares() async {
@@ -205,17 +247,24 @@ class DatabaseHelper {
 
   Future<int> insertAsset(AssetModel a) async {
     final db = await database;
-    return db.insert('assets', a.toMap()..remove('id'));
+    final result = await db.insert('assets', a.toMap()..remove('id'));
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> updateAsset(AssetModel a) async {
     final db = await database;
-    return db.update('assets', a.toMap(), where: 'id = ?', whereArgs: [a.id]);
+    final result = await db
+        .update('assets', a.toMap(), where: 'id = ?', whereArgs: [a.id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<int> deleteAsset(int id) async {
     final db = await database;
-    return db.delete('assets', where: 'id = ?', whereArgs: [id]);
+    final result = await db.delete('assets', where: 'id = ?', whereArgs: [id]);
+    notifyDataChanged();
+    return result;
   }
 
   Future<List<AssetModel>> getAllAssets() async {

@@ -1,10 +1,23 @@
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../db/database_helper.dart';
+import 'custom_subcategory_service.dart';
+
+class BackupFileInfo {
+  final File file;
+  final DateTime modified;
+
+  BackupFileInfo(this.file, this.modified);
+
+  String get name => file.uri.pathSegments.last;
+}
 
 /// Handles exporting the live SQLite file as a .zip the user can save
 /// anywhere (Drive, phone storage, email, etc.), and restoring from one.
@@ -15,12 +28,112 @@ import '../db/database_helper.dart';
 /// - Restore is just "stop app -> replace file -> reopen db", no need to
 ///   re-parse / re-insert thousands of rows.
 class BackupService {
-  static const String backupFileName = 'money_tracker_backup.zip';
+  static const String _selectedDirKey = 'backup_selected_directory';
 
-  /// Creates money_tracker_backup.zip in the app's temp dir containing the
-  /// current money_tracker.db, then opens the native share/save sheet so
-  /// the user can put it wherever they like (Downloads, Drive, etc.).
-  static Future<String> backupToZip() async {
+  static String? normalizeSelectedDirectoryPath(String? path) {
+    if (path == null) return null;
+
+    final cleaned = path.trim();
+    if (cleaned.isEmpty) return null;
+
+    if (cleaned.startsWith('content://')) return null;
+    if (cleaned.startsWith('file://')) return null;
+
+    final isWindowsAbsolute = RegExp(r'^[A-Za-z]:[\\/]').hasMatch(cleaned);
+    if (cleaned.startsWith('/') || isWindowsAbsolute) {
+      return cleaned;
+    }
+
+    return null;
+  }
+
+  static bool isFileSystemDirectoryPath(String? path) {
+    if (path == null || path.isEmpty) return false;
+    if (path.startsWith('content://')) return false;
+    if (path.startsWith('file://')) return false;
+    return path.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path);
+  }
+
+  static Future<String?> getSelectedDirectoryPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_selectedDirKey);
+    final normalized = normalizeSelectedDirectoryPath(saved);
+
+    if (saved != null && normalized == null) {
+      await prefs.remove(_selectedDirKey);
+      return null;
+    }
+
+    return normalized;
+  }
+
+  static Future<void> setSelectedDirectoryPath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = normalizeSelectedDirectoryPath(path);
+
+    if (normalized == null) {
+      await prefs.remove(_selectedDirKey);
+      return;
+    }
+
+    await prefs.setString(_selectedDirKey, normalized);
+  }
+
+  static Future<String?> pickDirectory() async {
+    final result = await FilePicker.getDirectoryPath();
+    final normalized = normalizeSelectedDirectoryPath(result);
+    if (normalized == null) return null;
+    await setSelectedDirectoryPath(normalized);
+    return normalized;
+  }
+
+  static Future<List<BackupFileInfo>> listAvailableBackups(
+      {String? directoryPath}) async {
+    final target = directoryPath ?? await getSelectedDirectoryPath();
+    if (target == null ||
+        target.isEmpty ||
+        !isFileSystemDirectoryPath(target)) {
+      return const [];
+    }
+
+    final dir = Directory(target);
+    if (!await dir.exists()) return const [];
+
+    final files = await dir.list().where((entity) {
+      if (entity is! File) return false;
+      final name = entity.path.toLowerCase();
+      return name.endsWith('.zip');
+    }).toList();
+
+    final backups = files
+        .map((entity) => BackupFileInfo(
+              entity as File,
+              entity.statSync().modified,
+            ))
+        .toList();
+
+    backups.sort((a, b) => b.modified.compareTo(a.modified));
+    return backups;
+  }
+
+  static Future<File?> pickBackupFile({String? initialDirectory}) async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      initialDirectory:
+          isFileSystemDirectoryPath(initialDirectory) ? initialDirectory : null,
+    );
+    if (result == null || result.isEmpty) return null;
+    final filePath = result.first.path;
+    if (filePath == null || filePath.isEmpty) return null;
+    return File(filePath);
+  }
+
+  static Future<bool> restoreBackup(BackupFileInfo backup) async {
+    return restoreFromZip(backup.file);
+  }
+
+  static Future<String> backupToZip({String? directoryPath}) async {
     final dbPath = await DatabaseHelper.instance.getDbPath();
     final dbFile = File(dbPath);
 
@@ -28,66 +141,114 @@ class BackupService {
       throw Exception('No database found yet — add at least one entry first.');
     }
 
-    // Make sure everything is flushed to disk before we copy it.
+    final selectedPath = directoryPath ?? await getSelectedDirectoryPath();
+    final targetDirPath = normalizeSelectedDirectoryPath(selectedPath);
+    final fileName =
+        'cashmori_Backup_${DateFormat('dd_MM_yy_HHmm').format(DateTime.now())}.zip';
+    final tempDir = await getTemporaryDirectory();
+    final tempZipPath = '${tempDir.path}/$fileName';
+
     await DatabaseHelper.instance.closeDb();
 
-    final tempDir = await getTemporaryDirectory();
-    final zipPath = '${tempDir.path}/$backupFileName';
+    try {
+      final customSnapshot = await CustomSubcategoryService.snapshot();
+      final encoder = ZipFileEncoder();
+      encoder.create(tempZipPath);
+      encoder.addFile(dbFile, 'money_tracker.db');
 
-    final encoder = ZipFileEncoder();
-    encoder.create(zipPath);
-    encoder.addFile(dbFile, 'money_tracker.db');
-    encoder.close();
+      final payload = Map<String, dynamic>.from(customSnapshot);
+      final jsonBytes = utf8.encode(jsonEncode(payload));
+      final tempJsonFile =
+          File('${tempDir.path}/__cashmori_custom_subcategories.json');
+      await tempJsonFile.writeAsBytes(jsonBytes, flush: true);
+      encoder.addFile(tempJsonFile, 'custom_subcategories.json');
+      await tempJsonFile.delete();
+      encoder.close();
 
-    // Reopen the db for the running app since we closed it above.
-    await DatabaseHelper.instance.database;
+      if (targetDirPath != null && targetDirPath.isNotEmpty) {
+        final targetDir = Directory(targetDirPath);
+        if (!await targetDir.exists()) {
+          await targetDir.create(recursive: true);
+        }
 
-    // Hand the file to the OS share sheet -> user picks "Save to Files",
-    // Drive, email, etc. This doubles as the "export" action.
-    await Share.shareXFiles([XFile(zipPath)], text: 'Money Tracker backup');
+        final finalZip = File(tempZipPath);
+        final targetZip = File('${targetDir.path}/$fileName');
+        await finalZip.copy(targetZip.path);
 
-    return zipPath;
+        await DatabaseHelper.instance.database;
+        return targetZip.path;
+      }
+
+      final bytes = await File(tempZipPath).readAsBytes();
+      final chosen = await FilePicker.saveFile(
+        fileName: fileName,
+        bytes: bytes,
+        type: FileType.custom,
+        allowedExtensions: ['zip'],
+      );
+      if (chosen == null) {
+        throw Exception('Backup was canceled.');
+      }
+
+      await DatabaseHelper.instance.database;
+      return chosen.path.isEmpty ? fileName : chosen.path;
+    } catch (e) {
+      await DatabaseHelper.instance.database;
+      rethrow;
+    }
   }
 
-  /// Lets the user pick a previously exported .zip, extracts money_tracker.db
-  /// from it, and overwrites the app's live database with it.
-  /// Returns true if a restore was performed.
-  static Future<bool> restoreFromZip() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-    );
-    // `FilePicker.pickFiles` on the currently-resolved package version
-    // returns `List<PlatformFile>` so handle that shape directly.
-    if (result.isEmpty) return false;
-    final PlatformFile first = result.first;
-    if (first.path == null) return false;
-    final pickedZip = File(first.path!);
-    final bytes = await pickedZip.readAsBytes();
+  static Future<bool> restoreFromZip(File zipFile) async {
+    if (!await zipFile.exists()) return false;
+    final bytes = await zipFile.readAsBytes();
+    return restoreFromZipBytes(bytes);
+  }
+
+  static Future<bool> restoreFromZipBytes(List<int> bytes) async {
     final archive = ZipDecoder().decodeBytes(bytes);
 
     ArchiveFile? dbEntry;
+    ArchiveFile? subcategoryEntry;
     for (final f in archive) {
       if (f.name == 'money_tracker.db') {
         dbEntry = f;
-        break;
+      } else if (f.name == 'custom_subcategories.json') {
+        subcategoryEntry = f;
       }
     }
+
     if (dbEntry == null) {
       throw Exception(
           'This zip does not contain a valid money_tracker.db backup.');
     }
 
-    // Close the live db before overwriting the file on disk.
     await DatabaseHelper.instance.closeDb();
 
-    final dbPath = await DatabaseHelper.instance.getDbPath();
-    final targetFile = File(dbPath);
-    await targetFile.writeAsBytes(dbEntry.content as List<int>, flush: true);
+    try {
+      final dbPath = await DatabaseHelper.instance.getDbPath();
+      final targetFile = File(dbPath);
+      await targetFile.writeAsBytes(dbEntry.content as List<int>, flush: true);
 
-    // Reopen with the restored data.
-    await DatabaseHelper.instance.database;
+      if (subcategoryEntry != null) {
+        final content = utf8.decode(subcategoryEntry.content as List<int>);
+        if (content.trim() != '{}' && content.trim() != 'null') {
+          final decoded = jsonDecode(content) as Map<String, dynamic>;
+          final map = <String, List<String>>{};
+          decoded.forEach((key, value) {
+            if (value is List) {
+              map[key] = value.map((e) => e.toString()).toList();
+            }
+          });
+          await CustomSubcategoryService.clearAll();
+          await CustomSubcategoryService.restore(map);
+        }
+      }
 
-    return true;
+      await DatabaseHelper.instance.database;
+      return true;
+    } catch (_) {
+      await DatabaseHelper.instance.database;
+      rethrow;
+    }
   }
 }

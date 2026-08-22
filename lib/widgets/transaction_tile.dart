@@ -19,7 +19,8 @@ class TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isExpense = transaction.type == 'expense';
     final color = isExpense ? AppColors.expense : AppColors.income;
-    final amountStr = NumberFormat('#,##,##0.##', 'en_IN').format(transaction.amount);
+    final amountStr =
+        MoneyFormatter.format(transaction.amount, withDecimal: false);
     final dateStr = DateFormat('d MMMM yyyy').format(transaction.date);
 
     return Padding(
@@ -49,19 +50,22 @@ class TransactionTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(dateStr,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 13)),
                     const SizedBox(height: 2),
                     Text.rich(
                       TextSpan(
                         text: 'Category : ',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        style: const TextStyle(
+                            color: AppColors.textSecondary, fontSize: 13),
                         children: [
                           TextSpan(
                             text: transaction.subCategory != null
                                 ? '${transaction.category} > ${transaction.subCategory}'
                                 : transaction.category,
                             style: const TextStyle(
-                                color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),

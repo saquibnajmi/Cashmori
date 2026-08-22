@@ -65,8 +65,8 @@ class TransactionModel {
 /// Static category -> subcategory map used to populate the dropdowns
 /// on the Add Entry screen. Feel free to extend.
 const Map<String, List<String>> kExpenseCategories = {
-  'Food': ['Snacks', 'Lunch', 'Dinner', 'Breakfast', 'Groceries'],
-  'Travel': ['Bus Ticket', 'Fuel', 'Cab', 'Flight'],
+  'Food': ['Snacks', 'Lunch', 'Dinner', 'Breakfast', 'Groceries', 'Fruits'],
+  'Travel': ['Bus', 'Train', 'Flight', 'Share Auto Rikshaw', 'Auto Rikshaw'],
   'Shopping': ['Clothes', 'Electronics', 'Accessories'],
   'Lodging': ['Hotel', 'Rent'],
   'Bills': ['Electricity', 'Water', 'Internet', 'Mobile Recharge'],
