@@ -46,3 +46,6 @@ app.*.map.json
 
 #screenshots
 /screenshots/
+
+#issues
+/issues/

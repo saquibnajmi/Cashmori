@@ -26,6 +26,7 @@ class AddEntrySheet extends StatefulWidget {
 }
 
 class _AddEntrySheetState extends State<AddEntrySheet> {
+  final _formKey = GlobalKey<FormState>();
   late String _type;
   final _amountCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
@@ -89,6 +90,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
       firstDate: DateTime(2015),
       lastDate: DateTime(2100),
     );
+    if (!mounted) return;
     if (picked != null) setState(() => _date = picked);
   }
 
@@ -103,17 +105,11 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
   }
 
   Future<void> _save() async {
-    final amount = double.tryParse(_amountCtrl.text.trim());
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
-      return;
-    }
-    if (_category == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Select a category')));
-      return;
-    }
+    // Validate the form fields (amount, category, etc.). Inline errors
+    // are shown by the `Form`'s field validators instead of a banner.
+    if (!_formKey.currentState!.validate()) return;
+
+    final amount = double.parse(_amountCtrl.text.trim());
 
     final tx = TransactionModel(
       id: widget.existing?.id,
@@ -157,11 +153,22 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         ],
       ),
     );
-
+    if (!mounted) return;
     if (result == null || result.isEmpty) return;
     if (_category == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a category first')),
+      // Inform the user to select a category first using a dialog.
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Select category'),
+          content: const Text(
+              'Please select a category before adding a sub-category.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK')),
+          ],
+        ),
       );
       return;
     }
@@ -192,13 +199,21 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         ],
       ),
     );
-
+    if (!mounted) return;
     if (result == null || result.isEmpty || _category == null) return;
     if (_categoryMap[_category] != null &&
         _categoryMap[_category]!.contains(value)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Default sub-categories cannot be edited')),
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cannot edit'),
+          content: const Text('Default sub-categories cannot be edited.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK')),
+          ],
+        ),
       );
       return;
     }
@@ -212,9 +227,17 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     if (_category == null) return;
     if (_categoryMap[_category] != null &&
         _categoryMap[_category]!.contains(value)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Default sub-categories cannot be deleted')),
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cannot delete'),
+          content: const Text('Default sub-categories cannot be deleted.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK')),
+          ],
+        ),
       );
       return;
     }
@@ -234,7 +257,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         ],
       ),
     );
-
+    if (!mounted) return;
     if (confirm != true) return;
     await CustomSubcategoryService.remove(_category!, value);
     await _refreshCustomSubcategories();
@@ -267,189 +290,207 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
         ),
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Text(
-                  widget.existing != null ? 'EDIT ENTRY' : 'ADD NEW ENTRY',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: AppColors.textPrimary),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Text(
+                    widget.existing != null ? 'EDIT ENTRY' : 'ADD NEW ENTRY',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: AppColors.textPrimary),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _typeButton('EXPENSE', 'expense', AppColors.expense),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _typeButton('INCOME', 'income', AppColors.income),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _labeledField(
-                      'AMOUNT',
-                      TextField(
-                        controller: _amountCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(hintText: '0.00'),
-                      ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          _typeButton('EXPENSE', 'expense', AppColors.expense),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _labeledField(
-                      'DATE',
-                      InkWell(
-                        onTap: _pickDate,
-                        child: InputDecorator(
-                          decoration: const InputDecoration(),
-                          child: Text(DateFormat('dd/MM/yyyy').format(_date)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _typeButton('INCOME', 'income', AppColors.income),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _labeledField(
+                        'AMOUNT',
+                        TextFormField(
+                          controller: _amountCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: const InputDecoration(hintText: '0.00'),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Enter an amount';
+                            }
+                            final a = double.tryParse(v.trim());
+                            if (a == null || a <= 0) {
+                              return 'Enter a valid amount';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _labeledField(
-                'CATEGORY',
-                DropdownButtonFormField<String>(
-                  initialValue:
-                      categories.contains(_category) ? _category : null,
-                  items: categories
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: _onCategoryChanged,
-                  decoration: const InputDecoration(),
-                ),
-              ),
-              if (_category != null) ...[
-                const SizedBox(height: 14),
-                _labeledField(
-                  'SUB - CATEGORY',
-                  Column(
-                    children: [
-                      DropdownButtonFormField<String>(
-                        initialValue: subCategories.contains(_subCategory)
-                            ? _subCategory
-                            : null,
-                        items: subCategories.map((s) {
-                          final bool showActions =
-                              !_categoryMap[_category]!.contains(s) &&
-                                  s != _subCategory;
-
-                          return DropdownMenuItem(
-                            value: s,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(child: Text(s)),
-                                if (showActions)
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        onPressed: () => _editSubcategory(s),
-                                        icon: const Icon(Icons.edit, size: 22),
-                                        padding: const EdgeInsets.all(8),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 36,
-                                          minHeight: 36,
-                                        ),
-                                        splashRadius: 18,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        onPressed: () =>
-                                            _deleteCustomSubcategory(s),
-                                        icon: const Icon(Icons.delete_outline,
-                                            size: 22),
-                                        padding: const EdgeInsets.all(8),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 36,
-                                          minHeight: 36,
-                                        ),
-                                        splashRadius: 18,
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (v) => setState(() => _subCategory = v),
-                        decoration: const InputDecoration(),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: _addSubcategory,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.add, size: 18),
-                                SizedBox(width: 4),
-                                Text('Add sub-category'),
-                              ],
-                            ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _labeledField(
+                        'DATE',
+                        InkWell(
+                          onTap: _pickDate,
+                          child: InputDecorator(
+                            decoration: const InputDecoration(),
+                            child: Text(DateFormat('dd/MM/yyyy').format(_date)),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ],
-              const SizedBox(height: 14),
-              _labeledField(
-                'DESCRIPTION',
-                TextField(
-                  controller: _descCtrl,
-                  decoration: const InputDecoration(hintText: 'e.g. T-shirt'),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 4,
-                    child: ElevatedButton(
-                      onPressed: _save,
-                      child: const Text('SAVE'),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _labeledField(
+                  'CATEGORY',
+                  DropdownButtonFormField<String>(
+                    initialValue:
+                        categories.contains(_category) ? _category : null,
+                    items: categories
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: _onCategoryChanged,
+                    decoration: const InputDecoration(),
+                    validator: (v) => v == null ? 'Select a category' : null,
                   ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(52, 52),
-                        shape: const CircleBorder(),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Icon(Icons.close, size: 22),
+                ),
+                if (_category != null) ...[
+                  const SizedBox(height: 14),
+                  _labeledField(
+                    'SUB - CATEGORY',
+                    Column(
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: subCategories.contains(_subCategory)
+                              ? _subCategory
+                              : null,
+                          items: subCategories.map((s) {
+                            final bool showActions =
+                                !_categoryMap[_category]!.contains(s) &&
+                                    s != _subCategory;
+
+                            return DropdownMenuItem(
+                              value: s,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(child: Text(s)),
+                                  if (showActions)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          onPressed: () => _editSubcategory(s),
+                                          icon:
+                                              const Icon(Icons.edit, size: 22),
+                                          padding: const EdgeInsets.all(8),
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          splashRadius: 18,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          onPressed: () =>
+                                              _deleteCustomSubcategory(s),
+                                          icon: const Icon(Icons.delete_outline,
+                                              size: 22),
+                                          padding: const EdgeInsets.all(8),
+                                          constraints: const BoxConstraints(
+                                            minWidth: 36,
+                                            minHeight: 36,
+                                          ),
+                                          splashRadius: 18,
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (v) => setState(() => _subCategory = v),
+                          decoration: const InputDecoration(),
+                        ),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: _addSubcategory,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.add, size: 18),
+                                  SizedBox(width: 4),
+                                  Text('Add sub-category'),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 14),
+                _labeledField(
+                  'DESCRIPTION',
+                  TextFormField(
+                    controller: _descCtrl,
+                    decoration: const InputDecoration(hintText: 'e.g. T-shirt'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: ElevatedButton(
+                        onPressed: _save,
+                        child: const Text('SAVE'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(52, 52),
+                          shape: const CircleBorder(),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Icon(Icons.close, size: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

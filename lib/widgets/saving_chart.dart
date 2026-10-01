@@ -42,7 +42,7 @@ class SavingChart extends StatelessWidget {
       children: [
         Row(
           children: [
-            _legendDot(AppColors.textPrimary.withOpacity(0.6), 'Saving', const Color(0xFF3E7BFA)),
+            _legendDot(AppColors.textPrimary.withValues(alpha: 0.6), 'Saving', const Color(0xFF3E7BFA)),
             const SizedBox(width: 16),
             _legendDot(AppColors.income, 'Income', AppColors.income),
             const SizedBox(width: 16),
@@ -59,7 +59,7 @@ class SavingChart extends StatelessWidget {
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (v) => FlLine(color: AppColors.divider, strokeWidth: 1),
+                getDrawingHorizontalLine: (v) => const FlLine(color: AppColors.divider, strokeWidth: 1),
               ),
               borderData: FlBorderData(show: false),
               titlesData: FlTitlesData(

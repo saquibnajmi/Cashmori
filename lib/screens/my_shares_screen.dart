@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../models/share_model.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_validators.dart';
 
 class MySharesScreen extends StatefulWidget {
   const MySharesScreen({super.key});
@@ -44,8 +45,9 @@ class _MySharesScreenState extends State<MySharesScreen> {
       body: FutureBuilder<List<ShareModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final shares = snapshot.data!;
 
           if (shares.isEmpty) {
@@ -205,24 +207,20 @@ class _AddShareSheet extends StatefulWidget {
 }
 
 class _AddShareSheetState extends State<_AddShareSheet> {
+  final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _qtyCtrl = TextEditingController();
   final _buyCtrl = TextEditingController();
   final _currentCtrl = TextEditingController();
-  DateTime _date = DateTime.now();
+  final DateTime _date = DateTime.now();
 
   Future<void> _save() async {
-    final qty = double.tryParse(_qtyCtrl.text.trim());
-    final buy = double.tryParse(_buyCtrl.text.trim());
-    final current = double.tryParse(_currentCtrl.text.trim());
-    if (_nameCtrl.text.trim().isEmpty ||
-        qty == null ||
-        buy == null ||
-        current == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Fill all fields correctly')));
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final qty = double.parse(_qtyCtrl.text.trim());
+    final buy = double.parse(_buyCtrl.text.trim());
+    final current = double.parse(_currentCtrl.text.trim());
+
     await DatabaseHelper.instance.insertShare(ShareModel(
       companyName: _nameCtrl.text.trim(),
       quantity: qty,
@@ -244,44 +242,53 @@ class _AddShareSheetState extends State<_AddShareSheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(
-              child: Text('ADD SHARE',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Company name')),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _qtyCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Quantity'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _buyCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  const InputDecoration(labelText: 'Buy price (per share)'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _currentCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration:
-                  const InputDecoration(labelText: 'Current price (per share)'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: _save, child: const Text('SAVE')),
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(
+                child: Text('ADD SHARE',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Company name'),
+                  validator: (value) => AppValidators.requiredText(value,
+                      message: 'Please enter the company name.')),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _qtyCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Quantity'),
+                validator: AppValidators.positiveNumber,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _buyCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration:
+                    const InputDecoration(labelText: 'Buy price (per share)'),
+                validator: AppValidators.positiveNumber,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _currentCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                    labelText: 'Current price (per share)'),
+                validator: AppValidators.positiveNumber,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(onPressed: _save, child: const Text('SAVE')),
+            ],
+          ),
         ),
       ),
     );

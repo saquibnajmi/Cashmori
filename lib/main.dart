@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/home_hub_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -15,7 +15,7 @@ class CashmoriApp extends StatelessWidget {
       title: 'Cashmori',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
-      home: const HomeHubScreen(),
+      home: const SplashScreen(),
     );
   }
 }

@@ -1,0 +1,7 @@
+flutter_native_splash:
+  color: "#1E2A38"
+  image: assets/icon/cashmori_logo_transparent.png
+  android_12:
+    color: "#1E2A38"
+    image: assets/icon/cashmori_icon_android12_1152.png
+  fullscreen: true

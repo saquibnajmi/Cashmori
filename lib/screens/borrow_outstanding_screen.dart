@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../models/borrow_model.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_validators.dart';
 
 class BorrowOutstandingScreen extends StatefulWidget {
   const BorrowOutstandingScreen({super.key});
@@ -45,8 +46,9 @@ class _BorrowOutstandingScreenState extends State<BorrowOutstandingScreen> {
       body: FutureBuilder<List<BorrowModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final records = snapshot.data!;
 
           final lent = records
@@ -208,19 +210,17 @@ class _AddBorrowSheet extends StatefulWidget {
 }
 
 class _AddBorrowSheetState extends State<_AddBorrowSheet> {
+  final _formKey = GlobalKey<FormState>();
   String _type = 'lent';
   final _nameCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
-  DateTime _date = DateTime.now();
+  final DateTime _date = DateTime.now();
   DateTime? _dueDate;
 
   Future<void> _save() async {
-    final amount = double.tryParse(_amountCtrl.text.trim());
-    if (_nameCtrl.text.trim().isEmpty || amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a name and valid amount')));
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final amount = double.parse(_amountCtrl.text.trim());
     await DatabaseHelper.instance.insertBorrow(BorrowModel(
       type: _type,
       personName: _nameCtrl.text.trim(),
@@ -242,80 +242,87 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(
-              child: Text('ADD BORROW / LENT',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: _type == 'lent'
-                          ? AppColors.income.withOpacity(0.12)
-                          : null,
-                      side: BorderSide(color: AppColors.income),
-                    ),
-                    onPressed: () => setState(() => _type = 'lent'),
-                    child: const Text('I LENT',
-                        style: TextStyle(color: AppColors.income)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: _type == 'borrowed'
-                          ? AppColors.expense.withOpacity(0.12)
-                          : null,
-                      side: BorderSide(color: AppColors.expense),
-                    ),
-                    onPressed: () => setState(() => _type = 'borrowed'),
-                    child: const Text('I BORROWED',
-                        style: TextStyle(color: AppColors.expense)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Person name'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _amountCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Amount'),
-            ),
-            const SizedBox(height: 14),
-            InkWell(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _dueDate ?? DateTime.now(),
-                  firstDate: DateTime(2015),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) setState(() => _dueDate = picked);
-              },
-              child: InputDecorator(
-                decoration:
-                    const InputDecoration(labelText: 'Due date (optional)'),
-                child: Text(_dueDate != null
-                    ? DateFormat('dd/MM/yyyy').format(_dueDate!)
-                    : '—'),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(
+                child: Text('ADD BORROW / LENT',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: _save, child: const Text('SAVE')),
-          ],
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _type == 'lent'
+                            ? AppColors.income.withValues(alpha: 0.12)
+                            : null,
+                        side: const BorderSide(color: AppColors.income),
+                      ),
+                      onPressed: () => setState(() => _type = 'lent'),
+                      child: const Text('I LENT',
+                          style: TextStyle(color: AppColors.income)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: _type == 'borrowed'
+                            ? AppColors.expense.withValues(alpha: 0.12)
+                            : null,
+                        side: const BorderSide(color: AppColors.expense),
+                      ),
+                      onPressed: () => setState(() => _type = 'borrowed'),
+                      child: const Text('I BORROWED',
+                          style: TextStyle(color: AppColors.expense)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(labelText: 'Person name'),
+                validator: (value) => AppValidators.requiredText(value,
+                    message: 'Please enter the person name.'),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _amountCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Amount'),
+                validator: AppValidators.positiveNumber,
+              ),
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _dueDate ?? DateTime.now(),
+                    firstDate: DateTime(2015),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) setState(() => _dueDate = picked);
+                },
+                child: InputDecorator(
+                  decoration:
+                      const InputDecoration(labelText: 'Due date (optional)'),
+                  child: Text(_dueDate != null
+                      ? DateFormat('dd/MM/yyyy').format(_dueDate!)
+                      : '—'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(onPressed: _save, child: const Text('SAVE')),
+            ],
+          ),
         ),
       ),
     );

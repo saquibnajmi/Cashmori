@@ -25,6 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     await showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         content: Row(
@@ -55,21 +56,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _backup() async {
-    setState(() => _busy = true);
     try {
-      _showBusyDialog('Backing up…', subtitle: 'Creating your backup file');
-      final outputPath = await BackupService.backupToZip();
+      final outputPath = await BackupService.backupToZip(forceFilePicker: true);
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
       final backupName = File(outputPath).uri.pathSegments.last;
       _snack('Backup successful: $backupName');
     } catch (e) {
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
       _snack('Back up failed: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -96,6 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     final confirm = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (_) => AlertDialog(
         title: const Text('Restore backup?'),
         content: Text(
@@ -124,11 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           subtitle: 'Please wait while your data is restored');
       final restored = await BackupService.restoreFromZipBytes(backupBytes);
       if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
+      if (Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       _snack(restored ? 'Restore complete.' : 'Restore cancelled.');
     } catch (e) {
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
+        if (Navigator.of(context, rootNavigator: true).canPop()) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
       }
       _snack('Restore failed: $e');
     } finally {
@@ -137,10 +135,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _snack(String msg) {
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }

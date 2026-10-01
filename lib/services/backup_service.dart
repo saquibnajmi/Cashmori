@@ -123,7 +123,7 @@ class BackupService {
       initialDirectory:
           isFileSystemDirectoryPath(initialDirectory) ? initialDirectory : null,
     );
-    if (result == null || result.isEmpty) return null;
+    if (result.isEmpty) return null;
     final filePath = result.first.path;
     if (filePath == null || filePath.isEmpty) return null;
     return File(filePath);
@@ -133,7 +133,8 @@ class BackupService {
     return restoreFromZip(backup.file);
   }
 
-  static Future<String> backupToZip({String? directoryPath}) async {
+  static Future<String> backupToZip(
+      {String? directoryPath, bool forceFilePicker = false}) async {
     final dbPath = await DatabaseHelper.instance.getDbPath();
     final dbFile = File(dbPath);
 
@@ -142,7 +143,8 @@ class BackupService {
     }
 
     final selectedPath = directoryPath ?? await getSelectedDirectoryPath();
-    final targetDirPath = normalizeSelectedDirectoryPath(selectedPath);
+    final targetDirPath =
+        forceFilePicker ? null : normalizeSelectedDirectoryPath(selectedPath);
     final fileName =
         'cashmori_Backup_${DateFormat('dd_MM_yy_HHmm').format(DateTime.now())}.zip';
     final tempDir = await getTemporaryDirectory();
@@ -165,7 +167,9 @@ class BackupService {
       await tempJsonFile.delete();
       encoder.close();
 
-      if (targetDirPath != null && targetDirPath.isNotEmpty) {
+      if (!forceFilePicker &&
+          targetDirPath != null &&
+          targetDirPath.isNotEmpty) {
         final targetDir = Directory(targetDirPath);
         if (!await targetDir.exists()) {
           await targetDir.create(recursive: true);
@@ -237,6 +241,24 @@ class BackupService {
           decoded.forEach((key, value) {
             if (value is List) {
               map[key] = value.map((e) => e.toString()).toList();
+            } else if (value is String) {
+              // Older formats or accidental stringification may store
+              // subcategories as a pipe-separated string (e.g. "a|b|c").
+              // Try to decode a JSON-encoded list first, otherwise split.
+              try {
+                final maybeList = jsonDecode(value);
+                if (maybeList is List) {
+                  map[key] = maybeList.map((e) => e.toString()).toList();
+                  return;
+                }
+              } catch (_) {}
+
+              final parts = value
+                  .split('|')
+                  .map((e) => e.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+              if (parts.isNotEmpty) map[key] = parts;
             }
           });
           await CustomSubcategoryService.clearAll();

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../db/database_helper.dart';
 import '../models/asset_model.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_validators.dart';
 
 class MyAssetsScreen extends StatefulWidget {
   const MyAssetsScreen({super.key});
@@ -44,8 +45,9 @@ class _MyAssetsScreenState extends State<MyAssetsScreen> {
       body: FutureBuilder<List<AssetModel>>(
         future: _future,
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final assets = snapshot.data!;
 
           if (assets.isEmpty) {
@@ -186,18 +188,16 @@ class _AddAssetSheet extends StatefulWidget {
 }
 
 class _AddAssetSheetState extends State<_AddAssetSheet> {
+  final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _valueCtrl = TextEditingController();
   String _assetType = kAssetTypes.first;
-  DateTime _date = DateTime.now();
+  final DateTime _date = DateTime.now();
 
   Future<void> _save() async {
-    final value = double.tryParse(_valueCtrl.text.trim());
-    if (_nameCtrl.text.trim().isEmpty || value == null || value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a name and valid value')));
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final value = double.parse(_valueCtrl.text.trim());
     await DatabaseHelper.instance.insertAsset(AssetModel(
       name: _nameCtrl.text.trim(),
       assetType: _assetType,
@@ -218,38 +218,47 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Center(
-              child: Text('ADD ASSET',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Asset name (e.g. Flat, Car)')),
-            const SizedBox(height: 14),
-            DropdownButtonFormField<String>(
-              value: _assetType,
-              items: kAssetTypes
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                  .toList(),
-              onChanged: (v) => setState(() => _assetType = v ?? _assetType),
-              decoration: const InputDecoration(labelText: 'Type'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _valueCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Current value'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(onPressed: _save, child: const Text('SAVE')),
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(
+                child: Text('ADD ASSET',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Asset name (e.g. Flat, Car)'),
+                  validator: (value) => AppValidators.requiredText(value,
+                      message: 'Please enter the asset name.')),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _assetType,
+                items: kAssetTypes
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) => setState(() => _assetType = v ?? _assetType),
+                decoration: const InputDecoration(labelText: 'Type'),
+                validator: (value) =>
+                    value == null ? 'Please select a type.' : null,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _valueCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Current value'),
+                validator: AppValidators.positiveNumber,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(onPressed: _save, child: const Text('SAVE')),
+            ],
+          ),
         ),
       ),
     );
