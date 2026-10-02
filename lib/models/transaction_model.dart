@@ -1,3 +1,4 @@
+// Represents a single financial entry, either income or expense.
 class TransactionModel {
   final int? id;
   final String type; // 'expense' or 'income'

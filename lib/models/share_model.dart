@@ -1,3 +1,4 @@
+// Describes one share investment with cost, live price, and calculated performance values.
 class ShareModel {
   final int? id;
   final String companyName;

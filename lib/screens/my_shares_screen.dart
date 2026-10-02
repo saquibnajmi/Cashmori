@@ -5,6 +5,7 @@ import '../models/share_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_validators.dart';
 
+// Manages the user's stock portfolio and calculates current portfolio value vs. invested value.
 class MySharesScreen extends StatefulWidget {
   const MySharesScreen({super.key});
 
@@ -30,14 +31,17 @@ class _MySharesScreenState extends State<MySharesScreen> {
     super.dispose();
   }
 
+  /// Reloads the share list when the database changes from another screen.
   void _onDatabaseChanged() {
     if (!mounted) return;
     setState(() => _future = DatabaseHelper.instance.getAllShares());
   }
 
+  /// Refreshes the portfolio screen with the latest share records.
   void _refresh() =>
       setState(() => _future = DatabaseHelper.instance.getAllShares());
 
+  /// Renders all shares, the portfolio summary, and the add-share button.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,6 +126,7 @@ class _ShareTile extends StatelessWidget {
   final VoidCallback onDeleted;
   const _ShareTile({required this.share, required this.onDeleted});
 
+  /// Confirms and deletes a share entry from the portfolio.
   Future<void> _confirmDelete(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -145,6 +150,7 @@ class _ShareTile extends StatelessWidget {
     }
   }
 
+  /// Displays a single share row with current value and gain/loss summary.
   @override
   Widget build(BuildContext context) {
     final gainColor =
@@ -214,6 +220,7 @@ class _AddShareSheetState extends State<_AddShareSheet> {
   final _currentCtrl = TextEditingController();
   final DateTime _date = DateTime.now();
 
+  /// Saves a new share purchase record to the database.
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -231,6 +238,7 @@ class _AddShareSheetState extends State<_AddShareSheet> {
     if (mounted) Navigator.pop(context, true);
   }
 
+  /// Builds the form sheet for adding a new share investment.
   @override
   Widget build(BuildContext context) {
     return Padding(

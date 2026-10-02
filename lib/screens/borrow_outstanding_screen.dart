@@ -5,6 +5,7 @@ import '../models/borrow_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_validators.dart';
 
+// Screen for tracking borrowed and lent money, the net balance, and settlement state.
 class BorrowOutstandingScreen extends StatefulWidget {
   const BorrowOutstandingScreen({super.key});
 
@@ -31,14 +32,17 @@ class _BorrowOutstandingScreenState extends State<BorrowOutstandingScreen> {
     super.dispose();
   }
 
+  /// Reloads the borrow records when persisted data changes.
   void _onDatabaseChanged() {
     if (!mounted) return;
     setState(() => _future = DatabaseHelper.instance.getAllBorrowRecords());
   }
 
+  /// Refreshes the borrow screen with the latest records from SQLite.
   void _refresh() =>
       setState(() => _future = DatabaseHelper.instance.getAllBorrowRecords());
 
+  /// Shows the net balance and all borrow/lent records in a scrollable list.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -126,6 +130,7 @@ class _BorrowTile extends StatelessWidget {
   final VoidCallback onChanged;
   const _BorrowTile({required this.record, required this.onChanged});
 
+  /// Renders a single borrow/lent record with amount, person, and settlement state.
   @override
   Widget build(BuildContext context) {
     final isLent = record.type == 'lent'; // money owed TO you
@@ -217,6 +222,7 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
   final DateTime _date = DateTime.now();
   DateTime? _dueDate;
 
+  /// Saves a new borrow/lent record to the database and closes the sheet.
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -231,6 +237,7 @@ class _AddBorrowSheetState extends State<_AddBorrowSheet> {
     if (mounted) Navigator.pop(context, true);
   }
 
+  /// Builds the bottom sheet form for adding a borrow/lent item.
   @override
   Widget build(BuildContext context) {
     return Padding(

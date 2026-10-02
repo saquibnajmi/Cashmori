@@ -5,8 +5,8 @@ import '../models/transaction_model.dart';
 import '../services/custom_subcategory_service.dart';
 import '../theme/app_theme.dart';
 
-/// Shows the "Add New Entry" bottom sheet. Returns true via Navigator.pop
-/// if a transaction was saved, so the caller can refresh its list.
+/// Shows the add/edit transaction bottom sheet.
+/// It returns true when a record is saved so the parent screen can refresh its list.
 Future<bool?> showAddEntrySheet(BuildContext context,
     {TransactionModel? existing}) {
   return showModalBottomSheet<bool>(
@@ -57,9 +57,11 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     }
   }
 
+  /// Maps the selected transaction type to the correct built-in category list.
   Map<String, List<String>> get _categoryMap =>
       _type == 'expense' ? kExpenseCategories : kIncomeCategories;
 
+  /// Loads and refreshes the custom sub-categories for the selected category.
   Future<void> _refreshCustomSubcategories() async {
     if (_category == null) {
       setState(() => _customSubcategories = const []);
@@ -75,6 +77,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     });
   }
 
+  /// Combines default sub-categories with custom user-defined items in one list.
   List<String> get _combinedSubcategories {
     final defaults = _category != null
         ? (_categoryMap[_category] ?? <String>[])
@@ -83,6 +86,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     return items.toSet().toList();
   }
 
+  /// Opens the date picker and updates the selected transaction date.
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -94,6 +98,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     if (picked != null) setState(() => _date = picked);
   }
 
+  /// Clears and refreshes sub-category state whenever the main category changes.
   void _onCategoryChanged(String? value) {
     setState(() {
       _category = value;
@@ -104,6 +109,9 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     }
   }
 
+  /// Saves or updates the transaction entry in the database.
+  /// The form is validated first, then a TransactionModel is created and sent to either
+  /// the insert or update path based on whether the user is editing an existing record.
   Future<void> _save() async {
     // Validate the form fields (amount, category, etc.). Inline errors
     // are shown by the `Form`'s field validators instead of a banner.
@@ -130,6 +138,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     if (mounted) Navigator.pop(context, true);
   }
 
+  /// Opens a dialog to add a custom sub-category for the selected main category.
   Future<void> _addSubcategory() async {
     final controller = TextEditingController();
     final result = await showDialog<String>(
@@ -178,6 +187,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     if (mounted) setState(() => _subCategory = result);
   }
 
+  /// Opens a dialog to edit an existing custom sub-category.
   Future<void> _editSubcategory(String value) async {
     final controller = TextEditingController(text: value);
     final result = await showDialog<String>(
@@ -223,6 +233,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     if (mounted) setState(() => _subCategory = result);
   }
 
+  /// Deletes a custom sub-category after user confirmation.
   Future<void> _deleteCustomSubcategory(String value) async {
     if (_category == null) return;
     if (_categoryMap[_category] != null &&
@@ -266,6 +277,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     }
   }
 
+  /// Builds the full add/edit entry form, including category, sub-category, and description fields.
   @override
   Widget build(BuildContext context) {
     final categories = _categoryMap.keys.toList();
@@ -497,6 +509,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     );
   }
 
+  /// Renders the expense/income toggle buttons for the form.
   Widget _typeButton(String label, String value, Color color) {
     final selected = _type == value;
     return OutlinedButton(
@@ -516,6 +529,7 @@ class _AddEntrySheetState extends State<AddEntrySheet> {
     );
   }
 
+  /// Wraps a form control in a labeled section for consistent layout.
   Widget _labeledField(String label, Widget field) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -6,6 +6,7 @@ import 'my_shares_screen.dart';
 import 'my_assets_screen.dart';
 import 'settings_screen.dart';
 
+// The main dashboard that presents the app's core sections as a 2x2 grid.
 class HomeHubScreen extends StatefulWidget {
   const HomeHubScreen({super.key});
 
@@ -14,6 +15,7 @@ class HomeHubScreen extends StatefulWidget {
 }
 
 class _HomeHubScreenState extends State<HomeHubScreen> {
+  /// Opens a child screen and refreshes the hub once the user returns.
   Future<void> _openScreen(Widget screen) async {
     await Navigator.push(
       context,
@@ -22,6 +24,7 @@ class _HomeHubScreenState extends State<HomeHubScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Renders the main home dashboard with four financial tiles and the settings action.
   @override
   Widget build(BuildContext context) {
     return Scaffold(

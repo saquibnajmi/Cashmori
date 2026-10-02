@@ -2,10 +2,15 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/backup_service.dart';
 import '../theme/app_theme.dart';
 
+const String _mySavingSummaryVisibleKey = 'my_saving_summary_visible';
+
+// Settings area for backup and restore actions.
+// It gives users a safe way to export or recover the app database and custom categories.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -15,12 +20,31 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _busy = false;
+  bool _showSummaryByDefault = true;
 
   @override
   void initState() {
     super.initState();
+    _loadSummaryPreference();
   }
 
+  /// Loads the stored My Saving summary preference used as the default for new sessions.
+  Future<void> _loadSummaryPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _showSummaryByDefault =
+        prefs.getBool(_mySavingSummaryVisibleKey) ?? true);
+  }
+
+  /// Saves the default visibility value for the My Saving summary and updates the UI state.
+  Future<void> _updateSummaryPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_mySavingSummaryVisibleKey, value);
+    if (!mounted) return;
+    setState(() => _showSummaryByDefault = value);
+  }
+
+  /// Shows a blocking progress dialog while a backup or restore operation is running.
   Future<void> _showBusyDialog(String title, {String? subtitle}) async {
     if (!mounted) return;
     await showDialog(
@@ -55,17 +79,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Creates a zip backup and reports a human-friendly file name back to the user.
+  /// The path is normalized first so Android document URIs do not show random IDs like 71.
   Future<void> _backup() async {
     try {
       final outputPath = await BackupService.backupToZip(forceFilePicker: true);
       if (!mounted) return;
-      final backupName = File(outputPath).uri.pathSegments.last;
-      _snack('Backup successful: $backupName');
+      final backupName = BackupService.fileNameForDisplay(outputPath);
+      _snack(
+        backupName == null
+            ? 'Backup successful.'
+            : 'Backup successful: $backupName',
+      );
     } catch (e) {
       _snack('Back up failed: $e');
     }
   }
 
+  /// Lets the user choose a backup file to restore and confirms the destructive action.
   Future<void> _showRestorePicker() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
@@ -134,6 +165,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Displays a short snackbar message for backup and restore feedback.
   void _snack(String msg) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -145,6 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Renders the backup and restore screen with prompts for saving and restoring data.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -154,6 +187,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Container(
+              decoration: AppTheme.cardDecoration,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Show My Saving summary By-Default',
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Switch(
+                    value: _showSummaryByDefault,
+                    activeThumbColor: AppColors.accent,
+                    onChanged: (value) => _updateSummaryPreference(value),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
             Container(
               decoration: AppTheme.cardDecoration,
               padding: const EdgeInsets.all(18),

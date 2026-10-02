@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-/// Central place for all colors / text styles so every screen looks
-/// consistent and matches the original mockup:
-/// light grey background, white rounded cards, soft shadow, yellow accent,
-/// red for expense, green for income.
+/// Central place for all colors and shared styling tokens.
+/// This keeps screens visually consistent and gives the app a single design language.
 class AppColors {
   static const background = Color(0xFFFFFFFF);
   static const card = Color(0xFFFFFFFF);
@@ -17,10 +15,12 @@ class AppColors {
   static const divider = Color(0xFFDADADA);
 }
 
+// Formats currency values in the app, using Indian numbering conventions.
 class MoneyFormatter {
   static final NumberFormat _full = NumberFormat('#,##,##0.00', 'en_IN');
   static final NumberFormat _compact = NumberFormat('#,##,##0.##', 'en_IN');
 
+  /// Formats a numeric value as currency using the app's Indian-style number format.
   static String format(double value,
       {bool withDecimal = true, bool showSign = false}) {
     final absolute = value.abs();
@@ -33,7 +33,9 @@ class MoneyFormatter {
   }
 }
 
+// Global Material theme configuration used across the app.
 class AppTheme {
+  /// Returns the app-wide design system used for every screen and form.
   static ThemeData get theme {
     return ThemeData(
       useMaterial3: true,
@@ -106,6 +108,7 @@ class AppTheme {
     );
   }
 
+  /// Standard card styling used across dashboard and list screens.
   static BoxDecoration get cardDecoration => BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(20),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+// Reusable card used on the home hub for each main financial section.
 class HubCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -15,6 +16,7 @@ class HubCard extends StatelessWidget {
     this.iconColor = AppColors.textPrimary,
   });
 
+  /// Builds the rounded dashboard tile that opens a main section of the app.
   @override
   Widget build(BuildContext context) {
     return InkWell(

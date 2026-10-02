@@ -1,3 +1,4 @@
+// Tracks money borrowed or lent to another person, including due date and settlement status.
 class BorrowModel {
   final int? id;
   final String type; // 'borrowed' (you owe) or 'lent' (owed to you)
@@ -39,7 +40,9 @@ class BorrowModel {
       personName: map['person_name'] as String,
       amount: (map['amount'] as num).toDouble(),
       date: DateTime.parse(map['date'] as String),
-      dueDate: map['due_date'] != null ? DateTime.parse(map['due_date'] as String) : null,
+      dueDate: map['due_date'] != null
+          ? DateTime.parse(map['due_date'] as String)
+          : null,
       status: map['status'] as String,
       notes: map['notes'] as String?,
     );

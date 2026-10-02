@@ -1,15 +1,19 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Stores user-defined sub-categories separately from the built-in defaults.
+// These values are saved in SharedPreferences so custom options persist across app sessions.
 class CustomSubcategoryService {
   static const String _keyPrefix = 'custom_subcategories_';
   static const String _snapshotKey = 'custom_subcategories_snapshot';
 
+  /// Loads all saved sub-categories for a given main category.
   static Future<List<String>> load(String category) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList('$_keyPrefix$category') ?? const [];
     return raw.where((item) => item.trim().isNotEmpty).toList();
   }
 
+  /// Creates a map of all saved custom category values for backup/restore operations.
   static Future<Map<String, List<String>>> snapshot() async {
     final prefs = await SharedPreferences.getInstance();
     final snapshot = <String, List<String>>{};
@@ -29,6 +33,7 @@ class CustomSubcategoryService {
     return snapshot;
   }
 
+  /// Restores custom category data back into SharedPreferences from a snapshot map.
   static Future<void> restore(Map<String, List<String>> snapshot) async {
     final prefs = await SharedPreferences.getInstance();
     for (final entry in snapshot.entries) {
@@ -45,6 +50,7 @@ class CustomSubcategoryService {
     );
   }
 
+  /// Removes all custom sub-categories from persistent storage.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((key) => key.startsWith(_keyPrefix));
@@ -54,6 +60,7 @@ class CustomSubcategoryService {
     await prefs.remove(_snapshotKey);
   }
 
+  /// Persists a category's custom subcategory list into local storage.
   static Future<void> save(String category, List<String> values) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
@@ -62,6 +69,7 @@ class CustomSubcategoryService {
     );
   }
 
+  /// Adds one new custom item to a category while ignoring duplicates and blank values.
   static Future<void> add(String category, String value) async {
     final existing = await load(category);
     final clean = value.trim();
@@ -70,11 +78,13 @@ class CustomSubcategoryService {
     await save(category, [...existing, clean]);
   }
 
+  /// Removes one custom sub-category from a category list.
   static Future<void> remove(String category, String value) async {
     final existing = await load(category);
     await save(category, existing.where((item) => item != value).toList());
   }
 
+  /// Replaces an existing custom sub-category value with a new cleaned version.
   static Future<void> update(
       String category, String oldValue, String newValue) async {
     final existing = await load(category);

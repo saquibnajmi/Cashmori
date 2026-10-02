@@ -5,6 +5,7 @@ import '../models/asset_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_validators.dart';
 
+// Tracks long-term assets like property, gold, and vehicles and totals their values.
 class MyAssetsScreen extends StatefulWidget {
   const MyAssetsScreen({super.key});
 
@@ -30,14 +31,17 @@ class _MyAssetsScreenState extends State<MyAssetsScreen> {
     super.dispose();
   }
 
+  /// Reloads asset data when a database change event is emitted.
   void _onDatabaseChanged() {
     if (!mounted) return;
     setState(() => _future = DatabaseHelper.instance.getAllAssets());
   }
 
+  /// Refreshes the asset list with the latest values from SQLite.
   void _refresh() =>
       setState(() => _future = DatabaseHelper.instance.getAllAssets());
 
+  /// Renders the assets screen including portfolio total and all asset rows.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,6 +109,7 @@ class _AssetTile extends StatelessWidget {
   final VoidCallback onDeleted;
   const _AssetTile({required this.asset, required this.onDeleted});
 
+  /// Confirms and deletes an asset record from storage.
   Future<void> _confirmDelete(BuildContext context) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -128,6 +133,7 @@ class _AssetTile extends StatelessWidget {
     }
   }
 
+  /// Returns the correct icon for each asset type.
   IconData get _icon {
     switch (asset.assetType) {
       case 'Property':
@@ -194,6 +200,7 @@ class _AddAssetSheetState extends State<_AddAssetSheet> {
   String _assetType = kAssetTypes.first;
   final DateTime _date = DateTime.now();
 
+  /// Saves a new asset record to the database and closes the sheet.
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 

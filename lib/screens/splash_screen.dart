@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
 import 'home_hub_screen.dart';
 
+// Initial screen shown on app launch while the database is loaded and the user is redirected to the hub.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -16,6 +17,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _initialize();
   }
 
+  /// Opens the database and then routes to the home hub once initialization completes.
   Future<void> _initialize() async {
     await DatabaseHelper.instance.database;
     if (!mounted) return;
@@ -24,6 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
+  /// Shows the app splash image while the app initializes and loads its database.
   @override
   Widget build(BuildContext context) {
     return Scaffold(

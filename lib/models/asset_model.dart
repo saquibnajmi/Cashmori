@@ -1,3 +1,4 @@
+// Stores asset records such as property, gold, vehicle, or other long-term holdings.
 class AssetModel {
   final int? id;
   final String name;

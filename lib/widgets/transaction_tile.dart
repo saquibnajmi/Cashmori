@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/transaction_model.dart';
 import '../theme/app_theme.dart';
 
+// Row UI for each transaction in the saving list. It highlights amounts and category metadata.
 class TransactionTile extends StatelessWidget {
   final TransactionModel transaction;
   final VoidCallback? onTap;
@@ -15,6 +16,7 @@ class TransactionTile extends StatelessWidget {
     this.onLongPress,
   });
 
+  /// Renders a transaction row with the amount, date, category, and direction icon.
   @override
   Widget build(BuildContext context) {
     final isExpense = transaction.type == 'expense';
